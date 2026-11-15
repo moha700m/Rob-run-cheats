@@ -4,7 +4,7 @@
 // updates they will usually need to be re-dumped. Dump them with Cheat Engine,
 // IDA, ReClass.NET, or x64dbg against the live process.
 //
-// Replace each \`// FILL:\` value with the offset / size found in your dump.
+// Replace each `// FILL:` value with the offset / size found in your dump.
 // Everything else in the project is build-agnostic and will not need to change.
 
 #pragma once

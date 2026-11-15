@@ -21,23 +21,23 @@ if(NOT WIN32)
 endif()
 
 # --- ImGui -------------------------------------------------------------------
-set(IMGUI_DIR "\${CMAKE_SOURCE_DIR}/vendor/imgui")
+set(IMGUI_DIR "${CMAKE_SOURCE_DIR}/vendor/imgui")
 
-if(NOT EXISTS "\${IMGUI_DIR}/imgui.h")
+if(NOT EXISTS "${IMGUI_DIR}/imgui.h")
     message(FATAL_ERROR
-        "Dear ImGui sources not found at \${IMGUI_DIR}.\n"
+        "Dear ImGui sources not found at ${IMGUI_DIR}.\n"
         "Clone them with:\n"
         "  git clone --depth 1 https://github.com/ocornut/imgui vendor/imgui")
 endif()
 
 set(IMGUI_SOURCES
-    "\${IMGUI_DIR}/imgui.cpp"
-    "\${IMGUI_DIR}/imgui_draw.cpp"
-    "\${IMGUI_DIR}/imgui_tables.cpp"
-    "\${IMGUI_DIR}/imgui_widgets.cpp"
-    "\${IMGUI_DIR}/imgui_demo.cpp"
-    "\${IMGUI_DIR}/backends/imgui_impl_win32.cpp"
-    "\${IMGUI_DIR}/backends/imgui_impl_dx11.cpp"
+    "${IMGUI_DIR}/imgui.cpp"
+    "${IMGUI_DIR}/imgui_draw.cpp"
+    "${IMGUI_DIR}/imgui_tables.cpp"
+    "${IMGUI_DIR}/imgui_widgets.cpp"
+    "${IMGUI_DIR}/imgui_demo.cpp"
+    "${IMGUI_DIR}/backends/imgui_impl_win32.cpp"
+    "${IMGUI_DIR}/backends/imgui_impl_dx11.cpp"
 )
 
 # --- Overlay executable ------------------------------------------------------
@@ -45,13 +45,13 @@ add_executable(RobRunOverlay WIN32
     src/main.cpp
     src/Overlay.cpp
     src/ESP.cpp
-    \${IMGUI_SOURCES}
+    ${IMGUI_SOURCES}
 )
 
 target_include_directories(RobRunOverlay PRIVATE
     src
-    "\${IMGUI_DIR}"
-    "\${IMGUI_DIR}/backends"
+    "${IMGUI_DIR}"
+    "${IMGUI_DIR}/backends"
 )
 
 target_compile_definitions(RobRunOverlay PRIVATE

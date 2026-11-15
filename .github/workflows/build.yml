@@ -42,7 +42,7 @@ jobs:
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
-          name: RobRunOverlay-\${{ github.sha }}
+          name: RobRunOverlay-${{ github.sha }}
           path: RobRunOverlay.zip
           if-no-files-found: error
 
@@ -53,4 +53,4 @@ jobs:
           files: RobRunOverlay.zip
           generate_release_notes: true
         env:
-          GITHUB_TOKEN: \${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

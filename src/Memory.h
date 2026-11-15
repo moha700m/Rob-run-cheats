@@ -70,8 +70,8 @@ namespace mem {
         return 0;
     }
 
-    // Resolves a RIP-relative instruction operand at \`insnAddr + insnOffset\`
-    // whose instruction length is \`insnLen\`. Useful for turning a signature
+    // Resolves a RIP-relative instruction operand at `insnAddr + insnOffset`
+    // whose instruction length is `insnLen`. Useful for turning a signature
     // hit like "48 8B 0D ? ? ? ?" into the real target address.
     //
     //   target = insnAddr + insnLen + *(int32_t*)(insnAddr + insnOffset)
