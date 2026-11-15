@@ -12,7 +12,7 @@ Evidence below comes from GitHub Actions run **43747776314** (commit `d76528cad1
 | Demo Mode | **Passed** | `demo.*` unit tests; self test: link `Demo`, 8 entities, snapshot tagged `Demo`; overlay always draws the "DEMO MODE - SYNTHETIC DATA" banner. |
 | Build x64 | **Passed** | Configure + MSVC Release build succeeded; `verify_pe.ps1`: Machine `0x8664` (x64), PE32+, GUI subsystem, 1,257,984 bytes, SHA-256 `63668742399CC1131FD9D9ABDA720B406FAE906A5F7890F555D643AE6043455F`. |
 | Runtime | **Passed** (self test only) | `RobRunOverlay.exe --selftest` exit 0, 33/33 checks; GDI 9→9, USER 4→4, handles 226→226 between cycle 1 and 2 (no growth); shutdown joined in 111 ms. This is an automated smoke test, not a long-run or soak test. |
-| Settings persistence | Passed | `settings.*` (13 tests incl. clamping, NaN rejection, atomic save) + self test save/reload. |
+| Settings persistence | Passed | `settings.*` (10 tests incl. clamping, NaN rejection, atomic save) + self test save/reload. |
 | Logging | Passed | `logger.*` (ring buffer, rotation, concurrency) + self test (file sink contains runtime entries). |
 | Memory read path (read-only) | Passed **against an in-process fixture only** | `process.provider_reads_fixture_world_end_to_end`, null/NaN/Inf rejection, unusable-matrix rejection, wrong-build refusal. **Not verified against RobRun.exe**: no offsets exist. |
 | Real ESP on RobRun | **NOT VERIFIED / unavailable** | No offsets are shipped; link state stays *"offsets not configured"* until the user supplies `offsets.ini`. |
@@ -21,7 +21,7 @@ Evidence below comes from GitHub Actions run **43747776314** (commit `d76528cad1
 
 * Windows: `ctest` 12/12 passed (10 portable suites + `unit.process` + `app.selftest`); unit runner: 70 tests, 0 failed.
 * Linux: `ctest` 10/10 passed.
-* Locally (before CI): the same 68 portable+process tests passed natively and under Wine; the GUI self test cannot run under Wine here.
+* Locally (before CI): 68 unit tests (portable + `process.*`) passed under Wine, and the portable suites passed natively on Linux; the GUI self test cannot run under Wine here.
 
 ## Known limits of this evidence
 
