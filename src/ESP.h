@@ -7,7 +7,7 @@
 #pragma once
 #include "World.h"
 #include "Config.h"
-#include "Math.h"
+#include "VecMath.h"
 
 namespace esp {
 
