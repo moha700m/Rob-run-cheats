@@ -31,4 +31,4 @@
 | Arabic UI text | UI is English; ImGui's default pipeline has no Arabic shaping/RTL. |
 | Exclusive-fullscreen games | A topmost window cannot draw over exclusive fullscreen; borderless/windowed only. |
 | Multi-monitor / mixed-DPI placement | Uses the game window's monitor; not tested on mixed DPI. |
-| Rendering on real GPUs | CI runs on a GPU-less runner (WARP). Hardware rendering is untested here. |
+| Rendering on a real desktop GPU | Only exercised on the GitHub-hosted runner (it created a D3D11 *hardware-type* device; the actual adapter is not recorded). The WARP fallback and device-loss recovery paths are implemented but were not triggered in any test. |
