@@ -2,42 +2,87 @@ name: Build
 
 on:
   push:
-    branches: [main, master]
+    branches: ['**']
     tags: ['v*']
-  pull_request:
-    branches: [main, master]
   workflow_dispatch:
 
+# One build per commit: a re-run or duplicate trigger for the same SHA cancels the older one.
+concurrency:
+  group: build-${{ github.sha }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
 jobs:
-  build:
-    runs-on: windows-latest
-
+  portable-tests:
+    name: Portable unit tests (Linux)
+    runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Clone Dear ImGui
-        shell: pwsh
-        run: git clone --depth 1 https://github.com/ocornut/imgui vendor/imgui
+      - name: Configure
+        run: cmake -B build -S . -DCMAKE_BUILD_TYPE=Release
 
-      - name: Add MSBuild to PATH
-        uses: microsoft/setup-msbuild@v2
+      - name: Build
+        run: cmake --build build --parallel
 
-      - name: Configure CMake (x64, Release)
+      - name: Run unit tests
+        run: ctest --test-dir build --output-on-failure
+
+      - name: Test report
+        if: always()
+        run: |
+          ./build/RobRunTests --report unit_report_linux.md || true
+          cat unit_report_linux.md >> "$GITHUB_STEP_SUMMARY" || true
+
+  windows:
+    name: Windows x64 Release
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure (x64, Dear ImGui fetched at pinned tag)
         shell: pwsh
         run: cmake -B build -S . -A x64
 
-      - name: Build
+      - name: Build (Release)
         shell: pwsh
         run: cmake --build build --config Release --parallel
 
-      - name: Collect artifact
+      - name: Verify EXE exists and is x64
+        shell: pwsh
+        run: ./scripts/verify_pe.ps1 build/Release/RobRunOverlay.exe
+
+      - name: Unit tests + GUI/runtime self test (ctest)
+        shell: pwsh
+        run: ctest --test-dir build -C Release --output-on-failure
+
+      - name: Write test report
+        if: always()
         shell: pwsh
         run: |
-          New-Item -ItemType Directory -Force -Path dist | Out-Null
-          Copy-Item build/Release/RobRunOverlay.exe dist/
-          Copy-Item README.md dist/
-          Compress-Archive -Path dist/* -DestinationPath RobRunOverlay.zip -Force
+          $out = "report.md"
+          "## Windows x64 test report (${{ github.sha }})" | Out-File $out -Encoding utf8
+          if (Test-Path build/Release/RobRunTests.exe) { & build/Release/RobRunTests.exe --report unit_report_windows.md | Out-Null }
+          if (Test-Path unit_report_windows.md) { Get-Content unit_report_windows.md | Out-File $out -Append -Encoding utf8 }
+          if (Test-Path build/selftest_report.txt) {
+            "### GUI / runtime self test (RobRunOverlay.exe --selftest)" | Out-File $out -Append -Encoding utf8
+            Get-Content build/selftest_report.txt | Out-File $out -Append -Encoding utf8
+          } else {
+            "### GUI / runtime self test: NO REPORT PRODUCED" | Out-File $out -Append -Encoding utf8
+          }
+          Get-Content $out | Out-File $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
+
+      - name: Package
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path dist/RobRunOverlay | Out-Null
+          Copy-Item build/Release/RobRunOverlay.exe dist/RobRunOverlay/
+          Copy-Item offsets.template.ini, README.md, Run_RobRun.bat dist/RobRunOverlay/
+          Copy-Item -Recurse docs dist/RobRunOverlay/docs
+          if (Test-Path report.md) { Copy-Item report.md dist/RobRunOverlay/TEST_REPORT_CI.md }
+          Compress-Archive -Path dist/RobRunOverlay -DestinationPath RobRunOverlay.zip -Force
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
@@ -46,11 +91,29 @@ jobs:
           path: RobRunOverlay.zip
           if-no-files-found: error
 
-      - name: Publish release (on tag)
-        if: startsWith(github.ref, 'refs/tags/v')
-        uses: softprops/action-gh-release@v2
+      - name: Upload test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-reports-${{ github.sha }}
+          path: |
+            report.md
+            build/selftest_report.txt
+            build/Testing/Temporary/LastTest.log
+          if-no-files-found: ignore
+
+  release:
+    name: Publish release (tags only)
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [portable-tests, windows]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: RobRunOverlay-${{ github.sha }}
+      - uses: softprops/action-gh-release@v2
         with:
           files: RobRunOverlay.zip
           generate_release_notes: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -1,79 +1,65 @@
-# Rob Run — External Overlay
+# RobRun External Overlay
 
-External, read-only overlay. Finds `RobRun.exe`, opens a transparent click-through DX11 window over it, draws ImGui ESP (boxes, names, HP bars, distance, snaplines, crosshair, FOV circle).
+External, **read-only** overlay and control app for `RobRun.exe` (Windows x64, C++20, Direct3D 11, Dear ImGui).
 
-Pure `ReadProcessMemory` — no injection, no hooks, no writes. All cheat logic lives outside the game process.
+> **ملخص بالعربية:** تطبيق Windows خارجي يعمل بنافذة تحكم رئيسية + Overlay شفاف فوق اللعبة. لا حقن، لا Hooks، لا كتابة في ذاكرة اللعبة، ولا تجاوز لأي حماية. **لا توجد Offsets حقيقية في المشروع**: بيانات اللعبة الحقيقية تحتاج ملف `offsets.ini` تستخرجه أنت من نسختك، وبدونه يعمل التطبيق في **Demo Mode** فقط (بيانات وهمية معنونة بوضوح). حالة كل ميزة موثّقة في `docs/FEATURES.md`.
 
-## Build
+## What it is — and is not
+
+| Is | Is not |
+|---|---|
+| Separate process, `OpenProcess(PROCESS_VM_READ \| PROCESS_QUERY_INFORMATION)` + `ReadProcessMemory` | Injection, hooks, patches, memory writes, handle stealing |
+| Click-through transparent overlay that never takes focus | Anti-cheat bypass, process hiding, driver tricks |
+| Control window: Start/Stop, status, live log, settings, hotkeys | A bundle of game offsets (none are shipped) |
+| Demo Mode with fabricated data, always labelled `DEMO` | Fake data presented as real |
+
+**Real ESP needs your own offsets.** Without a complete `offsets.ini` the live path refuses to read anything and the UI says exactly which values are missing. See [docs/OFFSETS.md](docs/OFFSETS.md).
+
+## Get it
+
+* **Prebuilt:** GitHub → Actions → latest successful *Build* run → artifact `RobRunOverlay-<sha>` (zip with the EXE, template, docs and the CI test report).
+* **From source:** Visual Studio 2022 (Desktop development with C++) + CMake ≥ 3.21 + internet (Dear ImGui `v1.91.9` is fetched by CMake):
 
 ```bat
-git clone --depth 1 https://github.com/ocornut/imgui vendor/imgui
 cmake -B build -S . -A x64
 cmake --build build --config Release
+ctest --test-dir build -C Release --output-on-failure
+build\Release\RobRunOverlay.exe
 ```
 
-Output: `build/Release/RobRunOverlay.exe`.
+Or just double-click **`Run_RobRun.bat`** (runs a prebuilt exe if present, otherwise builds, tests, then starts it; it refuses to start if the build or tests fail).
 
-Run **as administrator** if the game is launched with elevation (common on anti-cheat protected titles).
+## Using it
 
-## Runtime
+1. Start `RobRunOverlay.exe` (run as administrator only if the game runs elevated).
+2. **Dashboard** shows whether `RobRun.exe` is running, the link state and what data source is active.
+3. Press **START** (default `F8`). With no offsets the state is *"Game found – offsets not configured"*; tick **Demo Mode** to see the overlay with synthetic data.
+4. **Logs** tab: live log with level/text filter, copy, clear. The same lines go to `RobRunOverlay.log` (rotated at 1 MiB).
+5. **Settings** tab: process name, overlay mode, ESP options, colours, performance, hotkey rebinding. Saved to `RobRunOverlay.ini` next to the exe (falls back to `%APPDATA%\RobRunOverlay` if that folder is read-only); auto-saved on exit.
 
-| Key    | Action                        |
-|--------|-------------------------------|
-| INSERT | Toggle config menu            |
-| END    | Quit overlay                  |
+Default hotkeys (global, rebindable in Settings): `INSERT` show/hide window · `F8` start/stop · `F7` overlay on/off · `F6` edit HUD layout · `F9` Demo Mode · `END` quit.
 
-The overlay attaches automatically and re-attaches if the game is closed and reopened.
-
-## Filling in the offsets
-
-Everything in the framework is build-agnostic **except** `src/SDK.h`. Each `// FILL:` line is one value to dump against the current `RobRun.exe` build. You need:
-
-**Module-relative (static) offsets:**
-- `kLocalPlayer`  — pointer-to-pointer to the local player struct
-- `kEntityList`   — pointer to the array of entity pointers
-- `kEntityCount`  — int: number of active entities (optional; falls back to `kMaxEntities`)
-- `kViewMatrix`   — 4x4 float, row-major view-projection matrix
-- `kGameState`    — int or bool, non-zero in a match (optional)
-
-**Per-entity offsets** (relative to each `Entity*`):
-- `kPosition`   — `Vec3` world position (float x/y/z)
-- `kHealth`, `kMaxHealth` — floats
-- `kTeam`       — int team id
-- `kIsAlive`    — bool / int
-- `kName`       — inline `char[32]` or `char*`
-- `kBonePosHead` — optional, only if you want head boxes / snaplines to head
-- `kVisible`    — optional visibility flag
-
-### How to find them
-
-1. **Cheat Engine** — attach to `RobRun.exe`, scan for your known HP value, narrow by taking damage, find a pointer path. Repeat for each field. "Find what accesses this address" gives you the instruction, then "Browse memory region" / Mono / dissect data structure maps out the entity layout.
-2. **ReClass.NET** — paste the entity pointer, walk the struct interactively. Great for discovering `Position`, `Health`, `Team` fields visually.
-3. **IDA / Ghidra / x64dbg** — for patch-stable signatures. Find the instruction that reads `g_LocalPlayer`, extract the surrounding bytes (10–12 bytes with wildcards on relative operands), feed it to `mem::findPattern` + `mem::resolveRip` at runtime instead of hard-coding the offset. That version survives small patches.
-
-The scanner in `src/Memory.h` accepts IDA-style signatures (`"48 8B 05 ? ? ? ?"`). Swap any raw `kFoo = 0xABC` for a scan at startup once you have a signature.
+Command line: `--config <file> --log <file> --demo --autostart --selftest --report <file> --help`.
 
 ## Layout
 
 ```
-robrun-overlay/
-  CMakeLists.txt
-  README.md
-  src/
-    main.cpp         entry point, hotkeys, lifecycle
-    Overlay.h/.cpp   DX11 transparent window + ImGui
-    ESP.h/.cpp       ESP draws + settings menu
-    World.h          one-tick world snapshot (RPM)
-    Process.h        attach, module base, templated RPM
-    Memory.h         IDA-style pattern scan + RIP resolver
-    SDK.h            game offsets (the one file to edit per patch)
-    Math.h           Vec2/Vec3/Matrix4 + world-to-screen
-    Config.h         runtime settings
+src/
+  app/        main.cpp (entry, CLI), Application (loop, hotkeys, self test)
+  core/       DataWorker (thread), Keys, VecMath, Validate, Signature   (portable)
+  config/     Settings load/save                                         (portable)
+  logging/    Logger: ring buffer + rotating file                        (portable)
+  game/       SdkOffsets (offsets.ini), GameData types, DemoProvider (portable), MemoryProvider (Windows)
+  platform/   Process (read-only RPM), MemoryScan, GfxWindow (D3D11 + ImGui per window)
+  overlay/    Overlay window (transparent, click-through, topmost)
+  ui/         ControlWindow, ControlPanel (tabs), EspRenderer (ESP + HUD)
+tests/        unit tests (portable + Windows) — see docs/TEST_REPORT.md
+docs/         ARCHITECTURE, OFFSETS, FEATURES, ERRORS_LOG, TEST_REPORT
+.github/workflows/build.yml   Linux unit tests + Windows x64 build/test/artifact
 ```
 
-## Notes
+## Honest status
 
-- **External only.** The overlay never writes to the game, never allocates inside it, never injects. Reads are rate-limitable via `Config::readIntervalMs` to keep RPM pressure low.
-- **View matrix layout.** `Math::worldToScreen` assumes row-major. If positions project to the wrong quadrant, your view matrix is column-major — transpose on read or flip the indexing in `worldToScreen`.
-- **Entity stride.** Default is `sizeof(void*)` — change in `SDK.h` if the game uses an array of inline structs instead of pointers.
-- **Click-through.** Window is `WS_EX_TRANSPARENT` by default; `setInteractive(true)` flips it off while the menu is open so ImGui can receive input.
+See [docs/FEATURES.md](docs/FEATURES.md) for what is complete, what is incomplete, and which claims are backed by which test. Compilation success is not treated as proof that the app runs; the CI job also executes the unit tests and an automated GUI/runtime self test (`RobRunOverlay.exe --selftest`).
+
+`preview.py` / `Run_Preview_One_Click.bat` are the older Python/Tkinter *mock-up* of the UI. They do not touch the game or the real app.
