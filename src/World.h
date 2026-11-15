@@ -8,7 +8,7 @@
 #pragma once
 #include "Process.h"
 #include "SDK.h"
-#include "Math.h"
+#include "VecMath.h"
 #include "Config.h"
 
 #include <vector>
